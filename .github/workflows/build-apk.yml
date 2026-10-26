@@ -29,18 +29,34 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Ensure assets folder
+      - name: Backup our custom Dart source + pubspec
         run: |
-          mkdir -p assets
-          touch assets/.gitkeep
+          mkdir -p /tmp/landrop_backup
+          cp -r lib /tmp/landrop_backup/
+          cp pubspec.yaml /tmp/landrop_backup/
+          mkdir -p /tmp/landrop_backup/assets
+          cp -r assets/* /tmp/landrop_backup/assets/ 2>/dev/null || true
+          echo "Backup done"
+          ls -la /tmp/landrop_backup/lib/
 
-      - name: Generate missing Flutter/Android scaffolding if needed
+      - name: Generate complete Flutter Android project
         run: |
-          if [ ! -f android/app/src/main/kotlin/com/landrop/share/MainActivity.kt ]; then
-            echo "Generating base Flutter project scaffolding..."
-            flutter create . --org com.landrop --project-name landrop --platforms=android
-          fi
-          echo "Scaffolding check done"
+          flutter create . --org com.landrop --project-name landrop --platforms=android --overwrite
+          echo "Flutter project generated successfully"
+
+      - name: Restore our custom Dart code
+        run: |
+          rm -rf lib
+          cp -r /tmp/landrop_backup/lib .
+          cp /tmp/landrop_backup/pubspec.yaml .
+          mkdir -p assets
+          cp -r /tmp/landrop_backup/assets/* assets/ 2>/dev/null || true
+          touch assets/.gitkeep
+          echo "Custom code restored"
+          echo "=== lib structure ==="
+          find lib -type f
+          echo "=== pubspec ==="
+          head -20 pubspec.yaml
 
       - name: Get dependencies
         run: flutter pub get
@@ -85,9 +101,9 @@ jobs:
 
       - name: List output
         run: |
-          echo "APK files:"
-          find build/app/outputs -name "*.apk" -type f || true
-          ls -la build/app/outputs/flutter-apk/ || true
+          echo "=== APK files ==="
+          find build -name "*.apk" -type f 2>/dev/null || true
+          ls -la build/app/outputs/flutter-apk/ 2>/dev/null || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
