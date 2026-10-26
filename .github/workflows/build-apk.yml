@@ -7,7 +7,7 @@ on:
     branches: [ main, master ]
   release:
     types: [ published ]
-  workflow_dispatch:   # allow manual run
+  workflow_dispatch:
 
 jobs:
   build:
@@ -19,65 +19,80 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
-          java-version: '17'
+          distribution: temurin
+          java-version: "17"
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
-          channel: 'stable'
+          flutter-version: "3.24.5"
+          channel: stable
           cache: true
+
+      - name: Ensure assets folder
+        run: |
+          mkdir -p assets
+          touch assets/.gitkeep
+
+      - name: Generate missing Flutter/Android scaffolding if needed
+        run: |
+          if [ ! -f android/app/src/main/kotlin/com/landrop/share/MainActivity.kt ]; then
+            echo "Generating base Flutter project scaffolding..."
+            flutter create . --org com.landrop --project-name landrop --platforms=android
+          fi
+          echo "Scaffolding check done"
 
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Decode keystore from secrets
-        if: env.KEYSTORE_BASE64 != ''
+      - name: Decode keystore (if secrets exist)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
-          echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
-          echo "Keystore decoded successfully"
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/upload-keystore.jks
+            echo "Keystore decoded"
+          else
+            echo "No KEYSTORE_BASE64 secret – will build debug APK"
+          fi
 
-      - name: Create key.properties
-        if: env.KEYSTORE_BASE64 != ''
+      - name: Create key.properties (if secrets exist)
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
           STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
         run: |
-          cat > android/key.properties << EOL
+          if [ -n "$KEYSTORE_BASE64" ] && [ -n "$KEY_ALIAS" ]; then
+            cat > android/key.properties << EOL
           storePassword=$STORE_PASSWORD
           keyPassword=$KEY_PASSWORD
           keyAlias=$KEY_ALIAS
           storeFile=upload-keystore.jks
           EOL
-          echo "key.properties created"
+            echo "key.properties created"
+          fi
 
-      - name: Build APK (signed if secrets present, otherwise debug)
+      - name: Build APK
         run: |
           if [ -f android/key.properties ]; then
             echo "Building SIGNED release APK..."
             flutter build apk --release
           else
-            echo "No signing secrets found – building debug APK"
+            echo "Building DEBUG APK (no signing secrets)..."
             flutter build apk --debug
           fi
+
+      - name: List output
+        run: |
+          echo "APK files:"
+          find build/app/outputs -name "*.apk" -type f || true
+          ls -la build/app/outputs/flutter-apk/ || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: landrop-apk
-          path: |
-            build/app/outputs/flutter-apk/*.apk
+          path: build/app/outputs/flutter-apk/*.apk
+          if-no-files-found: warn
           retention-days: 30
-
-      - name: Upload to Release (if this is a release)
-        if: github.event_name == 'release'
-        uses: softprops/action-gh-release@v2
-        with:
-          files: build/app/outputs/flutter-apk/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

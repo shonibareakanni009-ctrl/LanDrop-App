@@ -5,7 +5,7 @@ plugins {
 }
 
 def keystoreProperties = new Properties()
-def keystorePropertiesFile = rootProject.file('key.properties')
+def keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(new FileInputStream(keystorePropertiesFile))
 }
@@ -35,10 +35,10 @@ android {
     signingConfigs {
         release {
             if (keystorePropertiesFile.exists()) {
-                keyAlias keystoreProperties['keyAlias']
-                keyPassword keystoreProperties['keyPassword']
-                storeFile keystoreProperties['storeFile'] ? file(keystoreProperties['storeFile']) : null
-                storePassword keystoreProperties['storePassword']
+                keyAlias = keystoreProperties["keyAlias"]
+                keyPassword = keystoreProperties["keyPassword"]
+                storeFile = keystoreProperties["storeFile"] ? file(keystoreProperties["storeFile"]) : null
+                storePassword = keystoreProperties["storePassword"]
             }
         }
     }
@@ -46,7 +46,6 @@ android {
     buildTypes {
         release {
             signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
-            minifyEnabled false
         }
     }
 }
@@ -54,5 +53,3 @@ android {
 flutter {
     source = "../.."
 }
-
-dependencies {}
