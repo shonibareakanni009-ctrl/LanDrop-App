@@ -3,10 +3,6 @@ name: Build Signed APK
 on:
   push:
     branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-  release:
-    types: [ published ]
   workflow_dispatch:
 
 jobs:
@@ -25,7 +21,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.47.8"   # ← updated from 3.24.5
+          flutter-version: "3.24.5"
           channel: stable
           cache: true
 
@@ -37,12 +33,11 @@ jobs:
           mkdir -p /tmp/landrop_backup/assets
           cp -r assets/* /tmp/landrop_backup/assets/ 2>/dev/null || true
           echo "Backup done"
-          ls -la /tmp/landrop_backup/lib/
 
       - name: Generate complete Flutter Android project
         run: |
           flutter create . --org com.landrop --project-name landrop --platforms=android --overwrite
-          echo "Flutter project generated successfully"
+          echo "Flutter project generated"
 
       - name: Restore our custom Dart code
         run: |
@@ -52,14 +47,15 @@ jobs:
           mkdir -p assets
           cp -r /tmp/landrop_backup/assets/* assets/ 2>/dev/null || true
           touch assets/.gitkeep
+          rm -f pubspec.lock
           echo "Custom code restored"
-          echo "=== lib structure ==="
           find lib -type f
-          echo "=== pubspec ==="
-          head -20 pubspec.yaml
 
       - name: Get dependencies
-        run: flutter pub get
+        run: |
+          flutter pub get --verbose 2>&1 | tee pubget.log
+          echo "----- last 50 lines of pub get -----"
+          tail -50 pubget.log
 
       - name: Decode keystore (if secrets exist)
         env:
@@ -98,12 +94,6 @@ jobs:
             echo "Building DEBUG APK (no signing secrets)..."
             flutter build apk --debug
           fi
-
-      - name: List output
-        run: |
-          echo "=== APK files ==="
-          find build -name "*.apk" -type f 2>/dev/null || true
-          ls -la build/app/outputs/flutter-apk/ 2>/dev/null || true
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
