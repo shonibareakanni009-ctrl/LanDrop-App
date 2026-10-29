@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">LanDrop</string>
+    <string name="start_sharing">Start Sharing</string>
+    <string name="stop_sharing">Stop Sharing</string>
+    <string name="add_files">Add Files</string>
+    <string name="add_apks">Share Apps (APK)</string>
+    <string name="no_files">No files selected yet</string>
+    <string name="server_running">Server running</string>
+    <string name="scan_qr">Scan QR or open the link on the same Wi‑Fi</string>
+    <string name="copy_link">Copy Link</string>
+    <string name="permission_needed">Storage permission is needed to share files</string>
+</resources>
