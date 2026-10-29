@@ -132,15 +132,33 @@ class MainActivity : AppCompatActivity() {
                     }
                     1, 2 -> {
                         rvContent.layoutManager = GridLayoutManager(this, 3)
-                        rvContent.adapter = MediaAdapter(items) { toggleSelect(it) }
+                        rvContent.adapter = MediaAdapter(items, { toggleSelect(it) }, { openViewer(it) })
                     }
                     else -> {
                         rvContent.layoutManager = LinearLayoutManager(this)
-                        rvContent.adapter = ListAdapter(items) { toggleSelect(it) }
+                        rvContent.adapter = ListAdapter(items, { toggleSelect(it) }, { openViewer(it) })
                     }
                 }
             }
         }
+    }
+
+    /** Open photo / video / music in-app. Files ignored for now. */
+    private fun openViewer(item: ShareItem) {
+        val type = when (item.type) {
+            ShareItem.Type.PHOTO -> ViewerActivity.TYPE_PHOTO
+            ShareItem.Type.VIDEO -> ViewerActivity.TYPE_VIDEO
+            ShareItem.Type.MUSIC -> ViewerActivity.TYPE_MUSIC
+            else -> return // Apps & Files: no viewer yet
+        }
+        val intent = Intent(this, ViewerActivity::class.java).apply {
+            putExtra(ViewerActivity.EXTRA_TYPE, type)
+            putExtra(ViewerActivity.EXTRA_NAME, item.name)
+            putExtra(ViewerActivity.EXTRA_PATH, item.path)
+            item.mediaUri?.let { putExtra(ViewerActivity.EXTRA_URI, it.toString()) }
+            if (item.meta.isNotEmpty()) putExtra(ViewerActivity.EXTRA_ARTIST, item.meta)
+        }
+        startActivity(intent)
     }
 
     private fun loadApps(): List<ShareItem> {
@@ -403,7 +421,8 @@ class MainActivity : AppCompatActivity() {
 
     inner class MediaAdapter(
         private val items: List<ShareItem>,
-        private val onClick: (ShareItem) -> Unit
+        private val onClick: (ShareItem) -> Unit,
+        private val onLongClick: (ShareItem) -> Unit
     ) : RecyclerView.Adapter<MediaAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val thumb: ImageView = v.findViewById(R.id.thumb)
@@ -422,12 +441,17 @@ class MainActivity : AppCompatActivity() {
             } else h.duration.visibility = View.GONE
             h.check.visibility = if (isSelected(item.id)) View.VISIBLE else View.GONE
             h.itemView.setOnClickListener { onClick(item) }
+            h.itemView.setOnLongClickListener {
+                onLongClick(item)
+                true
+            }
         }
     }
 
     inner class ListAdapter(
         private val items: List<ShareItem>,
-        private val onClick: (ShareItem) -> Unit
+        private val onClick: (ShareItem) -> Unit,
+        private val onLongClick: (ShareItem) -> Unit
     ) : RecyclerView.Adapter<ListAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val icon: ImageView = v.findViewById(R.id.icon)
@@ -450,6 +474,10 @@ class MainActivity : AppCompatActivity() {
             }
             h.check.visibility = if (isSelected(item.id)) View.VISIBLE else View.GONE
             h.itemView.setOnClickListener { onClick(item) }
+            h.itemView.setOnLongClickListener {
+                onLongClick(item)
+                true
+            }
         }
     }
 
