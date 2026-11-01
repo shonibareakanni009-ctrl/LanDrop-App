@@ -15,10 +15,12 @@ import android.provider.MediaStore
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -26,7 +28,6 @@ import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.tabs.TabLayout
 import com.google.zxing.BarcodeFormat
 import com.google.zxing.qrcode.QRCodeWriter
 import java.io.File
@@ -34,48 +35,72 @@ import java.util.concurrent.Executors
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var tabLayout: TabLayout
+    private lateinit var homeScreen: View
+    private lateinit var browseScreen: View
+    private lateinit var rvCategories: RecyclerView
     private lateinit var rvContent: RecyclerView
     private lateinit var progress: ProgressBar
+    private lateinit var emptyState: View
+    private lateinit var tvEmptyMsg: TextView
+    private lateinit var tvBrowseTitle: TextView
+    private lateinit var tvBrowseHint: TextView
+    private lateinit var btnBack: ImageButton
+    private lateinit var btnSelectMode: MaterialButton
+    private lateinit var shareBar: View
+    private lateinit var statusBar: View
     private lateinit var btnToggle: MaterialButton
     private lateinit var btnCopy: MaterialButton
-    private lateinit var statusBar: View
     private lateinit var tvUrl: TextView
     private lateinit var tvSelectedCount: TextView
     private lateinit var ivQrSmall: ImageView
 
     private val selected = linkedMapOf<String, ShareItem>()
     private var isSharing = false
+    private var selectMode = false
+    private var currentCategory = -1
     private var serverUrl: String? = null
     private val io = Executors.newSingleThreadExecutor()
 
+    private val categories = listOf(
+        Category(0, "Photos", android.R.drawable.ic_menu_gallery),
+        Category(1, "Videos", android.R.drawable.ic_menu_slideshow),
+        Category(2, "Music", android.R.drawable.ic_media_play),
+        Category(3, "Apps", android.R.drawable.ic_menu_manage),
+        Category(4, "Files", android.R.drawable.ic_menu_save)
+    )
+
     private val requestPerms = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { loadCurrentTab() }
-
-    private val tabs = listOf("Apps", "Photos", "Videos", "Music", "Files")
+    ) { refreshHomeCounts() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        tabLayout = findViewById(R.id.tabLayout)
+        homeScreen = findViewById(R.id.homeScreen)
+        browseScreen = findViewById(R.id.browseScreen)
+        rvCategories = findViewById(R.id.rvCategories)
         rvContent = findViewById(R.id.rvContent)
         progress = findViewById(R.id.progress)
+        emptyState = findViewById(R.id.emptyState)
+        tvEmptyMsg = findViewById(R.id.tvEmptyMsg)
+        tvBrowseTitle = findViewById(R.id.tvBrowseTitle)
+        tvBrowseHint = findViewById(R.id.tvBrowseHint)
+        btnBack = findViewById(R.id.btnBack)
+        btnSelectMode = findViewById(R.id.btnSelectMode)
+        shareBar = findViewById(R.id.shareBar)
+        statusBar = findViewById(R.id.statusBar)
         btnToggle = findViewById(R.id.btnToggle)
         btnCopy = findViewById(R.id.btnCopy)
-        statusBar = findViewById(R.id.statusBar)
         tvUrl = findViewById(R.id.tvUrl)
         tvSelectedCount = findViewById(R.id.tvSelectedCount)
         ivQrSmall = findViewById(R.id.ivQrSmall)
 
-        tabs.forEach { tabLayout.addTab(tabLayout.newTab().setText(it)) }
-        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab) = loadCurrentTab()
-            override fun onTabUnselected(tab: TabLayout.Tab) {}
-            override fun onTabReselected(tab: TabLayout.Tab) {}
-        })
+        rvCategories.layoutManager = GridLayoutManager(this, 2)
+        rvCategories.adapter = CategoryAdapter(categories) { openCategory(it.id) }
 
+        btnBack.setOnClickListener { showHome() }
+        btnSelectMode.setOnClickListener { toggleSelectMode() }
         btnToggle.setOnClickListener {
             if (isSharing) stopSharing() else startSharing()
         }
@@ -87,8 +112,26 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                when {
+                    selectMode -> {
+                        selectMode = false
+                        updateSelectModeUi()
+                        rvContent.adapter?.notifyDataSetChanged()
+                    }
+                    browseScreen.visibility == View.VISIBLE -> showHome()
+                    else -> {
+                        isEnabled = false
+                        onBackPressedDispatcher.onBackPressed()
+                    }
+                }
+            }
+        })
+
         ensurePerms()
-        loadCurrentTab()
+        showHome()
+        refreshHomeCounts()
         updateSelectedUi()
     }
 
@@ -111,54 +154,131 @@ class MainActivity : AppCompatActivity() {
         if (need.isNotEmpty()) requestPerms.launch(need.toTypedArray())
     }
 
-    private fun loadCurrentTab() {
-        val idx = tabLayout.selectedTabPosition.coerceAtLeast(0)
+    private fun showHome() {
+        homeScreen.visibility = View.VISIBLE
+        browseScreen.visibility = View.GONE
+        currentCategory = -1
+        selectMode = false
+        if (!isSharing) selected.clear()
+        updateSelectModeUi()
+        updateSelectedUi()
+        refreshHomeCounts()
+    }
+
+    private fun openCategory(id: Int) {
+        currentCategory = id
+        selectMode = false
+        homeScreen.visibility = View.GONE
+        browseScreen.visibility = View.VISIBLE
+        tvBrowseTitle.text = categories[id].title
+        updateSelectModeUi()
+        loadCategory(id)
+    }
+
+    private fun toggleSelectMode() {
+        selectMode = !selectMode
+        if (!selectMode && !isSharing) selected.clear()
+        updateSelectModeUi()
+        rvContent.adapter?.notifyDataSetChanged()
+        updateSelectedUi()
+    }
+
+    private fun updateSelectModeUi() {
+        btnSelectMode.text = if (selectMode) "Cancel" else "Select"
+        tvBrowseHint.text = if (selectMode) "Tap items to select for sharing" else "Tap to open · Select to share"
+        shareBar.visibility = if (selectMode || isSharing || selected.isNotEmpty()) View.VISIBLE else View.GONE
+    }
+
+    private fun refreshHomeCounts() {
+        io.execute {
+            val counts = listOf(
+                loadMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, false).size,
+                loadMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true).size,
+                loadAudio().size,
+                loadApps().size,
+                loadFiles().size
+            )
+            runOnUiThread {
+                (rvCategories.adapter as? CategoryAdapter)?.updateCounts(counts)
+            }
+        }
+    }
+
+    private fun loadCategory(id: Int) {
         progress.visibility = View.VISIBLE
+        emptyState.visibility = View.GONE
         rvContent.adapter = null
         io.execute {
-            val items = when (idx) {
-                0 -> loadApps()
-                1 -> loadMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, isVideo = false)
-                2 -> loadMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, isVideo = true)
-                3 -> loadAudio()
+            val items = when (id) {
+                0 -> loadMedia(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, false)
+                1 -> loadMedia(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, true)
+                2 -> loadAudio()
+                3 -> loadApps()
                 else -> loadFiles()
             }
             runOnUiThread {
                 progress.visibility = View.GONE
-                when (idx) {
-                    0 -> {
-                        rvContent.layoutManager = GridLayoutManager(this, 4)
-                        rvContent.adapter = AppAdapter(items) { toggleSelect(it) }
+                if (items.isEmpty()) {
+                    emptyState.visibility = View.VISIBLE
+                    tvEmptyMsg.text = when (id) {
+                        0 -> "No photos found on this phone"
+                        1 -> "No videos found on this phone"
+                        2 -> "No music found on this phone"
+                        3 -> "No installed apps found"
+                        else -> "No documents in Download or Documents"
                     }
-                    1, 2 -> {
-                        rvContent.layoutManager = GridLayoutManager(this, 3)
-                        rvContent.adapter = MediaAdapter(items, { toggleSelect(it) }, { openViewer(it) })
+                    return@runOnUiThread
+                }
+                emptyState.visibility = View.GONE
+                when (id) {
+                    0, 1 -> {
+                        rvContent.layoutManager = GridLayoutManager(this, 2)
+                        rvContent.adapter = MediaAdapter(items)
+                    }
+                    3 -> {
+                        rvContent.layoutManager = GridLayoutManager(this, 4)
+                        rvContent.adapter = AppAdapter(items)
                     }
                     else -> {
                         rvContent.layoutManager = LinearLayoutManager(this)
-                        rvContent.adapter = ListAdapter(items, { toggleSelect(it) }, { openViewer(it) })
+                        rvContent.adapter = ListAdapter(items)
                     }
                 }
             }
         }
     }
 
-    /** Open photo / video / music in-app. Files ignored for now. */
+    private fun onItemTap(item: ShareItem) {
+        if (selectMode) {
+            toggleSelect(item)
+        } else {
+            when (item.type) {
+                ShareItem.Type.PHOTO, ShareItem.Type.VIDEO, ShareItem.Type.MUSIC -> openViewer(item)
+                ShareItem.Type.APP, ShareItem.Type.FILE -> {
+                    // Enter select mode and select this item
+                    selectMode = true
+                    toggleSelect(item)
+                    updateSelectModeUi()
+                    rvContent.adapter?.notifyDataSetChanged()
+                }
+            }
+        }
+    }
+
     private fun openViewer(item: ShareItem) {
         val type = when (item.type) {
             ShareItem.Type.PHOTO -> ViewerActivity.TYPE_PHOTO
             ShareItem.Type.VIDEO -> ViewerActivity.TYPE_VIDEO
             ShareItem.Type.MUSIC -> ViewerActivity.TYPE_MUSIC
-            else -> return // Apps & Files: no viewer yet
+            else -> return
         }
-        val intent = Intent(this, ViewerActivity::class.java).apply {
+        startActivity(Intent(this, ViewerActivity::class.java).apply {
             putExtra(ViewerActivity.EXTRA_TYPE, type)
             putExtra(ViewerActivity.EXTRA_NAME, item.name)
             putExtra(ViewerActivity.EXTRA_PATH, item.path)
             item.mediaUri?.let { putExtra(ViewerActivity.EXTRA_URI, it.toString()) }
             if (item.meta.isNotEmpty()) putExtra(ViewerActivity.EXTRA_ARTIST, item.meta)
-        }
-        startActivity(intent)
+        })
     }
 
     private fun loadApps(): List<ShareItem> {
@@ -200,7 +320,7 @@ class MainActivity : AppCompatActivity() {
                     val dataCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns.DATA)
                     val durCol = if (isVideo) c.getColumnIndex(MediaStore.Video.Media.DURATION) else -1
                     var count = 0
-                    while (c.moveToNext() && count < 300) {
+                    while (c.moveToNext() && count < 400) {
                         val id = c.getLong(idCol)
                         val name = c.getString(nameCol) ?: "media"
                         val size = c.getLong(sizeCol)
@@ -308,11 +428,13 @@ class MainActivity : AppCompatActivity() {
     private fun updateSelectedUi() {
         tvSelectedCount.text = "${selected.size} selected"
         btnToggle.isEnabled = selected.isNotEmpty() || isSharing
+        if (selected.isNotEmpty() || isSharing) shareBar.visibility = View.VISIBLE
+        else if (!selectMode) shareBar.visibility = View.GONE
     }
 
     private fun startSharing() {
         if (selected.isEmpty()) {
-            Toast.makeText(this, "Select at least one item", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Select at least one item first", Toast.LENGTH_SHORT).show()
             return
         }
         progress.visibility = View.VISIBLE
@@ -351,6 +473,7 @@ class MainActivity : AppCompatActivity() {
                 tvUrl.text = serverUrl
                 ivQrSmall.setImageBitmap(makeQr(serverUrl!!))
                 statusBar.visibility = View.VISIBLE
+                shareBar.visibility = View.VISIBLE
                 Toast.makeText(this, "Sharing ${prepared.size} item(s)", Toast.LENGTH_SHORT).show()
             }
         }
@@ -362,6 +485,7 @@ class MainActivity : AppCompatActivity() {
         btnToggle.text = "Start Sharing"
         statusBar.visibility = View.GONE
         serverUrl = null
+        updateSelectedUi()
     }
 
     private fun restartServer() {
@@ -382,6 +506,8 @@ class MainActivity : AppCompatActivity() {
 
     fun isSelected(id: String) = selected.containsKey(id)
 
+    data class Category(val id: Int, val title: String, val iconRes: Int, var count: Int = 0)
+
     data class ShareItem(
         val id: String,
         val name: String,
@@ -396,10 +522,59 @@ class MainActivity : AppCompatActivity() {
         enum class Type { APP, PHOTO, VIDEO, MUSIC, FILE }
     }
 
-    inner class AppAdapter(
-        private val items: List<ShareItem>,
-        private val onClick: (ShareItem) -> Unit
-    ) : RecyclerView.Adapter<AppAdapter.VH>() {
+    inner class CategoryAdapter(
+        private val items: List<Category>,
+        private val onClick: (Category) -> Unit
+    ) : RecyclerView.Adapter<CategoryAdapter.VH>() {
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val icon: ImageView = v.findViewById(R.id.icon)
+            val title: TextView = v.findViewById(R.id.title)
+            val count: TextView = v.findViewById(R.id.count)
+        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_category, parent, false))
+        override fun getItemCount() = items.size
+        override fun onBindViewHolder(h: VH, pos: Int) {
+            val c = items[pos]
+            h.title.text = c.title
+            h.count.text = if (c.count > 0) "${c.count} items" else "Open"
+            h.icon.setImageResource(c.iconRes)
+            h.icon.setColorFilter(0xFFA78BFA.toInt())
+            h.itemView.setOnClickListener { onClick(c) }
+        }
+        fun updateCounts(counts: List<Int>) {
+            counts.forEachIndexed { i, n -> if (i < items.size) items[i].count = n }
+            notifyDataSetChanged()
+        }
+    }
+
+    inner class MediaAdapter(private val items: List<ShareItem>) :
+        RecyclerView.Adapter<MediaAdapter.VH>() {
+        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
+            val thumb: ImageView = v.findViewById(R.id.thumb)
+            val duration: TextView = v.findViewById(R.id.duration)
+            val check: View = v.findViewById(R.id.check)
+            val overlay: View = v.findViewById(R.id.selectOverlay)
+        }
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
+            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_media, parent, false))
+        override fun getItemCount() = items.size
+        override fun onBindViewHolder(h: VH, pos: Int) {
+            val item = items[pos]
+            h.thumb.setImageURI(item.mediaUri)
+            if (item.type == ShareItem.Type.VIDEO && item.durationMs > 0) {
+                h.duration.visibility = View.VISIBLE
+                h.duration.text = fmtDur(item.durationMs)
+            } else h.duration.visibility = View.GONE
+            val sel = isSelected(item.id)
+            h.check.visibility = if (sel) View.VISIBLE else View.GONE
+            h.overlay.visibility = if (selectMode && sel) View.VISIBLE else View.GONE
+            h.itemView.setOnClickListener { onItemTap(item) }
+        }
+    }
+
+    inner class AppAdapter(private val items: List<ShareItem>) :
+        RecyclerView.Adapter<AppAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val icon: ImageView = v.findViewById(R.id.icon)
             val name: TextView = v.findViewById(R.id.name)
@@ -415,44 +590,12 @@ class MainActivity : AppCompatActivity() {
             h.size.text = fmt(item.size)
             h.icon.setImageDrawable(item.icon)
             h.check.visibility = if (isSelected(item.id)) View.VISIBLE else View.GONE
-            h.itemView.setOnClickListener { onClick(item) }
+            h.itemView.setOnClickListener { onItemTap(item) }
         }
     }
 
-    inner class MediaAdapter(
-        private val items: List<ShareItem>,
-        private val onClick: (ShareItem) -> Unit,
-        private val onLongClick: (ShareItem) -> Unit
-    ) : RecyclerView.Adapter<MediaAdapter.VH>() {
-        inner class VH(v: View) : RecyclerView.ViewHolder(v) {
-            val thumb: ImageView = v.findViewById(R.id.thumb)
-            val duration: TextView = v.findViewById(R.id.duration)
-            val check: View = v.findViewById(R.id.check)
-        }
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            VH(LayoutInflater.from(parent.context).inflate(R.layout.item_media, parent, false))
-        override fun getItemCount() = items.size
-        override fun onBindViewHolder(h: VH, pos: Int) {
-            val item = items[pos]
-            h.thumb.setImageURI(item.mediaUri)
-            if (item.type == ShareItem.Type.VIDEO && item.durationMs > 0) {
-                h.duration.visibility = View.VISIBLE
-                h.duration.text = fmtDur(item.durationMs)
-            } else h.duration.visibility = View.GONE
-            h.check.visibility = if (isSelected(item.id)) View.VISIBLE else View.GONE
-            h.itemView.setOnClickListener { onClick(item) }
-            h.itemView.setOnLongClickListener {
-                onLongClick(item)
-                true
-            }
-        }
-    }
-
-    inner class ListAdapter(
-        private val items: List<ShareItem>,
-        private val onClick: (ShareItem) -> Unit,
-        private val onLongClick: (ShareItem) -> Unit
-    ) : RecyclerView.Adapter<ListAdapter.VH>() {
+    inner class ListAdapter(private val items: List<ShareItem>) :
+        RecyclerView.Adapter<ListAdapter.VH>() {
         inner class VH(v: View) : RecyclerView.ViewHolder(v) {
             val icon: ImageView = v.findViewById(R.id.icon)
             val name: TextView = v.findViewById(R.id.name)
@@ -473,11 +616,7 @@ class MainActivity : AppCompatActivity() {
                 else -> h.icon.setImageResource(android.R.drawable.ic_menu_save)
             }
             h.check.visibility = if (isSelected(item.id)) View.VISIBLE else View.GONE
-            h.itemView.setOnClickListener { onClick(item) }
-            h.itemView.setOnLongClickListener {
-                onLongClick(item)
-                true
-            }
+            h.itemView.setOnClickListener { onItemTap(item) }
         }
     }
 
