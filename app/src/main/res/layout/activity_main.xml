@@ -1,142 +1,267 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:background="#12121F">
+    android:background="#0F0F14">
 
+    <!-- ========== HOME (Files by Google style) ========== -->
     <LinearLayout
+        android:id="@+id/homeScreen"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingTop="16dp"
-        android:paddingBottom="8dp"
-        android:background="#1A1A2E">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="LanDrop"
-            android:textColor="#FFFFFF"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <TextView
-            android:id="@+id/tvSelectedCount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="0 selected"
-            android:textColor="#A0A0B0"
-            android:textSize="12sp"
-            android:gravity="center"
-            android:layout_marginTop="2dp" />
-    </LinearLayout>
-
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tabLayout"
-        android:layout_width="match_parent"
-        android:layout_height="48dp"
-        android:background="#1A1A2E"
-        app:tabMode="scrollable"
-        app:tabTextColor="#A0A0B0"
-        app:tabSelectedTextColor="#FFFFFF"
-        app:tabIndicatorColor="#6C5CE7"
-        app:tabRippleColor="#336C5CE7" />
-
-    <FrameLayout
-        android:id="@+id/contentFrame"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1">
-
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/rvContent"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:padding="8dp"
-            android:clipToPadding="false" />
-
-        <ProgressBar
-            android:id="@+id/progress"
-            android:layout_width="48dp"
-            android:layout_height="48dp"
-            android:layout_gravity="center"
-            android:visibility="gone" />
-    </FrameLayout>
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:background="#1A1A2E"
-        android:padding="12dp"
-        android:elevation="8dp">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
         <LinearLayout
-            android:id="@+id/statusBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="20dp"
+            android:paddingEnd="20dp"
+            android:paddingTop="28dp"
+            android:paddingBottom="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="LanDrop"
+                android:textColor="#FFFFFF"
+                android:textSize="28sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Browse &amp; share files on Wi‑Fi"
+                android:textColor="#9AA0B4"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rvCategories"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:padding="12dp"
+            android:clipToPadding="false" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="16dp"
+            android:gravity="center"
+            android:text="Open a category → tap to view · select to share"
+            android:textColor="#6B7280"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- ========== BROWSE (Google Photos style) ========== -->
+    <LinearLayout
+        android:id="@+id/browseScreen"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <!-- Top bar -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
             android:orientation="horizontal"
             android:gravity="center_vertical"
-            android:visibility="gone"
-            android:paddingBottom="10dp">
+            android:paddingStart="4dp"
+            android:paddingEnd="12dp"
+            android:background="#16161F">
 
-            <ImageView
-                android:id="@+id/ivQrSmall"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
-                android:background="#FFFFFF"
-                android:padding="4dp"
-                android:contentDescription="QR" />
+            <ImageButton
+                android:id="@+id/btnBack"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:src="@android:drawable/ic_menu_revert"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="Back"
+                android:tint="#FFFFFF" />
 
             <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:orientation="vertical"
-                android:paddingStart="12dp"
-                android:paddingEnd="8dp">
+                android:paddingStart="4dp">
 
                 <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Server running"
-                    android:textColor="#00D68F"
-                    android:textSize="12sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/tvUrl"
+                    android:id="@+id/tvBrowseTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:textColor="#FFFFFF"
-                    android:textSize="13sp"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
                     android:maxLines="1"
-                    android:ellipsize="middle" />
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tvBrowseHint"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="Tap to open · Select to share"
+                    android:textColor="#9AA0B4"
+                    android:textSize="12sp" />
             </LinearLayout>
 
             <com.google.android.material.button.MaterialButton
-                android:id="@+id/btnCopy"
-                style="@style/Widget.Material3.Button.TonalButton"
+                android:id="@+id/btnSelectMode"
+                style="@style/Widget.Material3.Button.TextButton"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:text="Copy"
-                android:textSize="12sp"
+                android:text="Select"
                 android:textAllCaps="false"
+                android:textColor="#A78BFA"
                 android:minWidth="0dp"
                 android:paddingHorizontal="12dp" />
         </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnToggle"
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="52dp"
-            android:text="Start Sharing"
-            android:textAllCaps="false"
-            android:textSize="16sp"
-            app:cornerRadius="26dp"
-            android:backgroundTint="#6C5CE7" />
+            android:layout_height="0dp"
+            android:layout_weight="1">
+
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvContent"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:padding="6dp"
+                android:clipToPadding="false" />
+
+            <ProgressBar
+                android:id="@+id/progress"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+
+            <LinearLayout
+                android:id="@+id/emptyState"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="32dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Nothing here yet"
+                    android:textColor="#FFFFFF"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/tvEmptyMsg"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center"
+                    android:text="No items found in this category"
+                    android:textColor="#9AA0B4"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </FrameLayout>
+
+        <!-- Selection + share bar -->
+        <LinearLayout
+            android:id="@+id/shareBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="#16161F"
+            android:padding="12dp"
+            android:elevation="12dp"
+            android:visibility="gone">
+
+            <LinearLayout
+                android:id="@+id/statusBar"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:visibility="gone"
+                android:paddingBottom="10dp">
+
+                <ImageView
+                    android:id="@+id/ivQrSmall"
+                    android:layout_width="52dp"
+                    android:layout_height="52dp"
+                    android:background="#FFFFFF"
+                    android:padding="4dp"
+                    android:contentDescription="QR" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="8dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sharing now"
+                        android:textColor="#34D399"
+                        android:textSize="12sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/tvUrl"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textColor="#FFFFFF"
+                        android:textSize="12sp"
+                        android:maxLines="1"
+                        android:ellipsize="middle" />
+                </LinearLayout>
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnCopy"
+                    style="@style/Widget.Material3.Button.TonalButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="40dp"
+                    android:text="Copy"
+                    android:textSize="12sp"
+                    android:textAllCaps="false"
+                    android:minWidth="0dp"
+                    android:paddingHorizontal="12dp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <TextView
+                    android:id="@+id/tvSelectedCount"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="0 selected"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnToggle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="48dp"
+                    android:text="Start Sharing"
+                    android:textAllCaps="false"
+                    android:textSize="14sp"
+                    app:cornerRadius="24dp"
+                    android:backgroundTint="#7C3AED"
+                    android:paddingHorizontal="20dp" />
+            </LinearLayout>
+        </LinearLayout>
     </LinearLayout>
-</LinearLayout>
+</FrameLayout>
